@@ -189,9 +189,7 @@ fun UploadScreen(
 
             is ModelState.Loaded -> {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onModelLoaded() },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -213,10 +211,32 @@ fun UploadScreen(
                         )
 
                         Text(
-                            text = "Tap to start analyzing leaves",
+                            text = "A Gemma model is already loaded and ready to use.",
                             style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        androidx.compose.material3.Button(
+                            onClick = { onModelLoaded() },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Proceed with current model")
+                        }
+
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { 
+                                viewModel.resetToIdle()
+                                filePickerLauncher.launch("application/octet-stream") 
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Choose another model")
+                        }
                     }
                 }
             }

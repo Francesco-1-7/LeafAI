@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,6 +10,23 @@ plugins {
 android {
     namespace = "com.example.leafai"
     compileSdk = 35
+
+    // --- AGGIUNGI DA QUI ---
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile = rootProject.file("local.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keystore.alias"] as String?
+            keyPassword = keystoreProperties["keystore.alias.password"] as String?
+            storeFile = file("../my-release-key.jks") // Assicurati che il percorso sia corretto!
+            storePassword = keystoreProperties["keystore.password"] as String?
+        }
+    }
+    // --- A QUI ---
 
     defaultConfig {
         applicationId = "com.example.leafai"

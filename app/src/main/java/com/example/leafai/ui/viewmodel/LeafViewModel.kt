@@ -225,6 +225,10 @@ class LeafViewModel : ViewModel() {
         }
     }
 
+    fun resetToIdle() {
+        _modelState.value = ModelState.Idle
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Resources are handled by the system or custom logic if needed
