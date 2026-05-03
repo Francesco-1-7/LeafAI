@@ -153,7 +153,7 @@ class LeafViewModel : ViewModel() {
     fun analyzeLeaf(bitmap: Bitmap) {
         // Clear previous and set initial "Analyzing" state
         _lastResult.value = LeafResult("Analyzing...", 0f, "Processing image...", emptyList())
-        _chatMessages.value = listOf(ChatMessage("Sto analizzando la tua foto, un momento...", isUser = false))
+        _chatMessages.value = listOf(ChatMessage("I'm analyzing your photo, one moment...", isUser = false))
         _isSendingMessage.value = true
 
         viewModelScope.launch {
@@ -175,7 +175,7 @@ class LeafViewModel : ViewModel() {
                     ChatMessage(diagnosis, isUser = false)
                 )
             } catch (e: Exception) {
-                _chatMessages.value = listOf(ChatMessage("Errore nell'analisi: ${e.message}", isUser = false))
+                _chatMessages.value = listOf(ChatMessage("Error in parsing: ${e.message}", isUser = false))
             } finally {
                 _isSendingMessage.value = false
             }
@@ -199,7 +199,7 @@ class LeafViewModel : ViewModel() {
                 }
                 _chatMessages.value = _chatMessages.value + ChatMessage(response, isUser = false)
             } catch (e: Exception) {
-                _chatMessages.value = _chatMessages.value + ChatMessage("Error: ${e.message}", isUser = false)
+                _chatMessages.value = _chatMessages.value + ChatMessage("Errore: ${e.message}", isUser = false)
             } finally {
                 _isSendingMessage.value = false
             }

@@ -58,13 +58,15 @@ public class MlWrapper {
             // Refined prompt to force specialized identification and avoid generic "healthy" hallucinations.
             Content imageContent = new Content.ImageBytes(byteArray);
             
-            String promptText = "Examine this leaf closely.\n";
+            String promptText = "You're an expert botanist. Analyze this leaf closely.\n";
             if (plantName != null && !plantName.trim().isEmpty()) {
                 promptText += "The user identified this plant as: " + plantName + ".\n";
             }
-            promptText += "1. Identify the specific plant species.\n" +
-                    "2. Look for spots, wilting, or discoloration.\n" +
-                    "3. Provide a detailed health diagnosis. If you are unsure, state your uncertainty.";
+            promptText += "Analyze the leaf and provide an expert response structured as follows:\n" +
+                          "1. Detailed health diagnosis based on visible spots, wilting, or discoloration.\n" +
+                          "2. Possible causes of the detected issues.\n" +
+                          "3. Recommended treatment or next steps.\n" +
+                          "Strictly avoid any preamble about plant identification or uncertainty.";
             
             Content textContent = new Content.Text(promptText);
             
@@ -102,9 +104,21 @@ public class MlWrapper {
         Conversation conversation = ModelManager.INSTANCE.getConversation();
         if (conversation == null) return "Modello non caricato";
         try {
-            return conversation.sendMessage(prompt, new HashMap<>()).toString();
+            Log.d(TAG, "Chat Follow-up: Sending text-only prompt: " + prompt);
+            
+            // For follow-up chat, we should ensure the prompt is clear that it's a continuation
+            // though the conversation object should maintain state if the SDK supports it.
+            // If the SDK expects images in EVERY turn for multimodal conversations, this might fail,
+            // but usually, once an image is in context, subsequent turns can be text-only.
+            
+            Message response = conversation.sendMessage(prompt, new HashMap<>());
+            String responseText = response.toString();
+            
+            Log.d(TAG, "Chat response received: " + responseText);
+            return responseText;
         } catch (Exception e) {
-            return "Errore: " + e.getMessage();
+            Log.e(TAG, "Error in generateResponse", e);
+            return "Errore nella chat: " + e.getMessage();
         }
     }
 }

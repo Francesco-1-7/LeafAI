@@ -54,13 +54,14 @@ fun UploadScreen(
     val context = LocalContext.current
     val currentState by viewModel.modelState.collectAsState()
 
-    // Automatic navigation when model is loaded
-    LaunchedEffect(currentState) {
-        if (currentState is ModelState.Loaded) {
-            android.util.Log.d("UploadScreen", "Model loaded, navigating to Camera")
-            onModelLoaded()
-        }
-    }
+    // Manual navigation logic: we REMOVE the automatic navigation
+    // so the user can see the "Model Ready" state and choose.
+    // LaunchedEffect(currentState) {
+    //    if (currentState is ModelState.Loaded) {
+    //        android.util.Log.d("UploadScreen", "Model loaded, navigating to Camera")
+    //        onModelLoaded()
+    //    }
+    // }
 
             // File picker launcher for selecting model files
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -105,7 +106,7 @@ fun UploadScreen(
 
         // Subtitle
         Text(
-            text = "Identify plant leaves using on-device AI",
+            text = "Analyze plant leaves using on-device AI",
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
