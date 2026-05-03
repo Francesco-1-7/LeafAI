@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.leafai.model.LeafResult
 import com.example.leafai.ui.screen.CameraScreen
+import com.example.leafai.ui.screen.PlantInputScreen
 import com.example.leafai.ui.screen.ResultScreen
 import com.example.leafai.ui.screen.UploadScreen
 import com.example.leafai.viewmodel.LeafViewModel
@@ -17,13 +18,14 @@ import com.example.leafai.viewmodel.LeafViewModel
  */
 sealed class Screen(val route: String) {
     object Upload : Screen("upload")
+    object PlantInput : Screen("plant_input")
     object Camera : Screen("camera")
     object Result : Screen("result")
 }
 
 /**
  * Main navigation graph for the app.
- * Flow: Upload -> Camera -> Result
+ * Flow: Upload -> PlantInput -> Camera -> Result
  */
 @Composable
 fun NavGraph(
@@ -36,34 +38,53 @@ fun NavGraph(
     ) {
         uploadScreen(
             viewModel = viewModel,
-            onNavigateToCamera = { navController.navigate(Screen.Camera.route) }
+            onNavigateToPlantInput = { 
+                navController.navigate(Screen.PlantInput.route) {
+                    popUpTo(Screen.Upload.route) { inclusive = true }
+                }
+            }
+        )
+        plantInputScreen(
+            viewModel = viewModel,
+            onNavigateToCamera = {
+                navController.navigate(Screen.Camera.route)
+            }
         )
         cameraScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
             onNavigateToResult = { result ->
-                navController.navigate(Screen.Result.route) {
-                    // Clear upload screen from back stack
-                    popUpTo(Screen.Upload.route) { inclusive = true }
-                }
+                navController.navigate(Screen.Result.route)
             }
         )
         resultScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
-            onRetake = { navController.navigate(Screen.Camera.route) }
+            onRetake = { navController.navigate(Screen.PlantInput.route) }
         )
     }
 }
 
 fun NavGraphBuilder.uploadScreen(
     viewModel: LeafViewModel,
-    onNavigateToCamera: () -> Unit
+    onNavigateToPlantInput: () -> Unit
 ) {
     composable(route = Screen.Upload.route) {
         UploadScreen(
             viewModel = viewModel,
-            onModelLoaded = onNavigateToCamera
+            onModelLoaded = onNavigateToPlantInput
+        )
+    }
+}
+
+fun NavGraphBuilder.plantInputScreen(
+    viewModel: LeafViewModel,
+    onNavigateToCamera: () -> Unit
+) {
+    composable(route = Screen.PlantInput.route) {
+        PlantInputScreen(
+            viewModel = viewModel,
+            onNext = onNavigateToCamera
         )
     }
 }

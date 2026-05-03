@@ -46,3 +46,4 @@ coverage/
 *.temp
 .cache/
 .qwen/
+guida-liteRT.txt

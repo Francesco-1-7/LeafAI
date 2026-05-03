@@ -1,7 +1,9 @@
 package com.example.leafai.ml
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import com.example.leafai.model.LeafResult
 import org.tensorflow.lite.Interpreter
@@ -11,10 +13,10 @@ import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
-import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
+import java.util.Locale
 
 /**
  * Wrapper around TensorFlow Lite for running leaf classification inference.
@@ -36,25 +38,56 @@ class MlWrapper(private val context: Context) {
 
     /**
      * Loads a TensorFlow Lite model from the given file path (URI or absolute path).
+
+
+         * Returns true if successful, false otherwise.
+     * Throws IllegalArgumentException if the model file is too large for memory mapping (> 2GB).
      */
-    fun loadModel(modelPath: String): Boolean {
+    @Throws(IllegalArgumentException::class)
+    fun loadModel(modelUri: Uri): Boolean {
         return try {
             closeModel()
 
-            val inputStream = FileInputStream(modelPath).channel
-            modelBuffer = inputStream.map(FileChannel.MapMode.READ_ONLY, 0, inputStream.size())
+            // Use openAssetFileDescriptor to handle both files and assets, and get correct size/offset
+            context.contentResolver.openAssetFileDescriptor(modelUri, "r")?.use { afd ->
+                val fileInputStream = afd.createInputStream()
+                val fileChannel = fileInputStream.channel
+                val startOffset = afd.startOffset
+                val declaredLength = afd.declaredLength
 
-            val options = Interpreter.Options().apply {
-                setNumThreads(4)
-            }
+                // Ensure the length is within Int.MAX_VALUE (MappedByteBuffer limit)
+                if (declaredLength > Int.MAX_VALUE) {
+                    throw IllegalArgumentException("Model file is too large (> 2GB): $declaredLength bytes")
+                }
 
-            interpreter = Interpreter(modelBuffer as ByteBuffer, options)
-            isLoaded = true
+                // If declaredLength is UNKNOWN_LENGTH, use the channel size
+                val mapSize = if (declaredLength == AssetFileDescriptor.UNKNOWN_LENGTH) {
+                    val size = fileChannel.size() - startOffset
+                    if (size > Int.MAX_VALUE) {
+                        throw IllegalArgumentException("Model file size (calculated) is too large (> 2GB): $size bytes")
+                    }
+                    size
+                } else {
+                    declaredLength
+                }
 
-            Log.d(TAG, "Model loaded successfully from: $modelPath")
-            true
+                modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, mapSize)
+
+                val options = Interpreter.Options().apply {
+                    setNumThreads(4)
+                }
+
+                interpreter = Interpreter(modelBuffer as ByteBuffer, options)
+                isLoaded = true
+
+                Log.d(TAG, "Model loaded successfully from: $modelUri")
+                true
+            } ?: false
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, e.message ?: "Model too large", e)
+            throw e // Rethrow to let ViewModel handle the specific message
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model", e)
+            Log.e(TAG, "Failed to load model from $modelUri", e)
             isLoaded = false
             false
         }
@@ -155,7 +188,7 @@ class MlWrapper(private val context: Context) {
             else -> "low"
         }
 
-        val percentage = String.format("%.1f", confidence * 100.0f)
+        val percentage = String.format(Locale.US, "%.1f", confidence * 100.0f)
         return "The leaf appears to belong to $species with $confidenceLevel confidence ($percentage%)."
     }
 

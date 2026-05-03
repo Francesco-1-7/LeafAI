@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.example.leafai.ml.ModelManager
 import com.example.leafai.ui.navigation.NavGraph
 import com.example.leafai.ui.theme.LeafAITheme
 import com.example.leafai.viewmodel.LeafViewModel
@@ -46,6 +47,14 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Release GPU resources only when app is actually finishing
+        if (isFinishing) {
+            ModelManager.close()
         }
     }
 }

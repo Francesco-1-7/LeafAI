@@ -38,26 +38,38 @@ import com.example.leafai.R
 import com.example.leafai.model.ModelState
 import com.example.leafai.viewmodel.LeafViewModel
 
+import android.provider.OpenableColumns
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+
 /**
- * Screen for uploading/loading a TensorFlow Lite model.
- * Provides a button to select a .tflite file from the device.
+ * Screen for uploading/loading a Gemma 4 E2B model.
+ * Provides a button to select a model file from the device.
  */
 @Composable
 fun UploadScreen(
     viewModel: LeafViewModel = viewModel(),
     onModelLoaded: () -> Unit
 ) {
+    val context = LocalContext.current
     val currentState by viewModel.modelState.collectAsState()
 
-    // File picker launcher for selecting .tflite model files
+    // Automatic navigation when model is loaded
+    LaunchedEffect(currentState) {
+        if (currentState is ModelState.Loaded) {
+            android.util.Log.d("UploadScreen", "Model loaded, navigating to Camera")
+            onModelLoaded()
+        }
+    }
+
+            // File picker launcher for selecting model files
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.loadModel(it.toString())
+            viewModel.loadModel(context, it)
         }
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()

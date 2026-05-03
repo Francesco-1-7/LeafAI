@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,11 +50,29 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.leafai.model.LeafResult
 import com.example.leafai.viewmodel.LeafViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import kotlinx.coroutines.launch
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import java.util.concurrent.Executors
+import android.util.Log
 
 /**
  * Camera screen for capturing leaf photos.
  * Uses CameraX to provide a live camera preview and capture button.
  */
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraScreen(
     viewModel: LeafViewModel,
@@ -62,127 +81,177 @@ fun CameraScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Camera permission using standard ActivityResult API
-    var cameraPermissionGranted by remember { mutableStateOf(false) }
-
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        cameraPermissionGranted = isGranted
-    }
-
-    var bitmapCapture by remember { mutableStateOf<Bitmap?>(null) }
-
+    val coroutineScope = rememberCoroutineScope()
+    
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
     val lastResult by viewModel.lastResult.collectAsStateWithLifecycle()
 
+    // Camera states
+    val previewView = remember { PreviewView(context) }
+    val imageCapture = remember { ImageCapture.Builder().build() }
+    val cameraSelector = remember { CameraSelector.DEFAULT_BACK_CAMERA }
+    var isAnalyzing by remember { mutableStateOf(false) }
+
     LaunchedEffect(lastResult) {
-        lastResult?.let { onResult(it) }
+        if (lastResult != null) {
+            isAnalyzing = false
+            onResult(lastResult!!)
+        }
     }
 
     // Request camera permission on launch
     LaunchedEffect(Unit) {
-        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        if (!cameraPermissionState.status.isGranted) {
+            cameraPermissionState.launchPermissionRequest()
+        }
     }
 
-    if (cameraPermissionGranted) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Camera preview with image analysis
-            CameraPreviewWithAnalysis(
-                modifier = Modifier.fillMaxSize(),
-                onImageCaptured = { bitmap ->
-                    bitmapCapture = bitmap
-                    viewModel.analyzeLeaf(bitmap)
+    // Bind camera to lifecycle
+    LaunchedEffect(cameraPermissionState.status.isGranted) {
+        if (cameraPermissionState.status.isGranted) {
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().also {
+                    it.surfaceProvider = previewView.surfaceProvider
                 }
+
+                try {
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageCapture
+                    )
+                } catch (e: Exception) {
+                    Log.e("CameraScreen", "Use case binding failed", e)
+                }
+            }, ContextCompat.getMainExecutor(context))
+        }
+    }
+
+    if (cameraPermissionState.status.isGranted) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            // Camera Preview
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier.fillMaxSize()
             )
 
             // Top bar with back button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .align(Alignment.TopStart),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(top = 48.dp, start = 16.dp),
+                horizontalArrangement = Arrangement.Start
             ) {
-                androidx.compose.material3.FilledTonalButton(
+                androidx.compose.material3.IconButton(
                     onClick = onBack,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        modifier = Modifier.size(18.dp)
+                        tint = Color.White
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Back")
                 }
             }
 
-            // Capture guide and button at bottom
-            Column(
+            // Overlay Guide
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .align(Alignment.BottomCenter),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(bottom = 120.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // Guide overlay
                 Box(
                     modifier = Modifier
-                        .size(250.dp)
-                        .border(
-                            width = 2.dp,
-                            color = Color.White.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(24.dp)
-                        )
+                        .size(280.dp)
+                        .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
                 )
                 Text(
-                    text = "Place leaf inside the frame",
+                    text = "Frame the leaf",
                     color = Color.White,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-
-                // Capture button
-                Box(
+                    style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier
-                        .size(72.dp)
-                        .background(
-                            color = Color.White,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+                        .align(Alignment.Center)
+                        .padding(top = 320.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
+            // Bottom Controls
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(bottom = 48.dp, top = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (isAnalyzing) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Analyzing leaf...", color = Color.White)
+                } else {
+                    // Capture Button
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
-                            .border(
-                                width = 3.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
-                            )
-                    )
-                }
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .clickable {
+                                isAnalyzing = true
+                                val executor = Executors.newSingleThreadExecutor()
+                                imageCapture.takePicture(
+                                    executor,
+                                    object : ImageCapture.OnImageCapturedCallback() {
+                                        override fun onCaptureSuccess(image: ImageProxy) {
+                                            val rotationDegrees = image.imageInfo.rotationDegrees
+                                            val bitmap = image.toBitmap()
+                                            image.close()
+                                            
+                                            // Handle potential rotation from CameraX
+                                            val finalBitmap = if (rotationDegrees != 0) {
+                                                val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                            } else {
+                                                bitmap
+                                            }
 
-                androidx.compose.material3.Button(
-                    onClick = {
-                        // The bitmap is captured via ImageAnalysis
-                        // Trigger analysis again to ensure fresh capture
-                        bitmapCapture?.let { viewModel.analyzeLeaf(it) }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(52.dp)
-                ) {
-                    Text(
-                        "Analyze Leaf",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                                            coroutineScope.launch {
+                                                // Trigger analysis
+                                                viewModel.analyzeLeaf(finalBitmap)
+                                                // Immediate navigation to Result/Chat screen
+                                                onResult(LeafResult("Analyzing...", 0f, "Processing image...", emptyList()))
+                                            }
+                                        }
+
+                                        override fun onError(exception: ImageCaptureException) {
+                                            Log.e("CameraScreen", "Capture failed", exception)
+                                            isAnalyzing = false
+                                        }
+                                    }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .border(4.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("TAP TO ANALYZE", color = Color.White, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
     } else {
-        // Permission not granted
+        // Permission requested UI (remains similar)
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -209,76 +278,11 @@ fun CameraScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
             androidx.compose.material3.Button(
-                onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                onClick = { cameraPermissionState.launchPermissionRequest() },
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Grant Permission")
             }
         }
     }
-}
-
-@Composable
-private fun CameraPreviewWithAnalysis(
-    modifier: Modifier,
-    onImageCaptured: (Bitmap) -> Unit
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(Unit) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-
-        cameraProviderFuture.addListener({
-            val provider = cameraProviderFuture.get()
-
-            val preview = Preview.Builder().build().also {
-                it.surfaceProvider = null
-            }
-
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            // Image analysis to capture frames as Bitmaps
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also { analysis ->
-                    analysis.setAnalyzer(
-                        ContextCompat.getMainExecutor(context)
-                    ) { imageProxy: ImageProxy ->
-                        try {
-                            val bitmap = imageProxy.toBitmap()
-                            onImageCaptured(bitmap)
-                        } finally {
-                            imageProxy.close()
-                        }
-                    }
-                }
-
-            try {
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageAnalysis
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }, ContextCompat.getMainExecutor(context))
-
-        onDispose {
-            cameraProviderFuture.cancel(false)
-        }
-    }
-
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            }
-        }
-    )
 }
