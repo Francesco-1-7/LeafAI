@@ -21,8 +21,9 @@ Download the latest `.apk` file from the [Releases] section and install it on yo
 To keep the installation package lightweight, the AI model is not bundled with the app.
 
 1.  **Current Model:** Go to **Hugging Face** and download the base model: [gemma-4-E2B-it.litertlm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it.litertlm).
-2.  **Move the File:** Once downloaded, move the model file into the **Download** folder of your smartphone.
-3.  **Initialization:** Upon launching LeafAI, use the file picker to select the model from your Download folder to initialize the AI engine.
+   or the more powerful [gemma-4-E4B-it.litertlm](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/blob/main/gemma-4-E4B-it.litertlm)
+3.  **Move the File:** Once downloaded, move the model file into the **Download** folder of your smartphone.
+4.  **Initialization:** Upon launching LeafAI, use the file picker to select the model from your Download folder to initialize the AI engine.
 
 > [!IMPORTANT]  
 > **Upcoming Update:** The model linked above is the current base version. I'm currently **fine-tuning a new custom model** specifically trained on thousands of plant diseases. This specialized version will be released soon to provide even more accurate and professional diagnoses.
