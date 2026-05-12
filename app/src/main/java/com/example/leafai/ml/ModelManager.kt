@@ -41,11 +41,11 @@ object ModelManager {
 
         try {
             close() // Close previous resources
-            
+
             Log.d(TAG, "Initializing LiteRT-LM Engine (Senior Config - CPU/Stability focus)...")
-            
+
             // 1. Setup persistent cache for KV fragments
-            val cacheDir = java.io.File(context.cacheDir, "litert_cache").apply { 
+            val cacheDir = java.io.File(context.cacheDir, "litert_cache").apply {
                 if (!exists()) mkdirs() 
             }
 
@@ -64,7 +64,7 @@ object ModelManager {
                 maxNumImages = 1,
                 cacheDir = cacheDir.absolutePath
             )
-            
+
             val newEngine = Engine(config).apply {
                 initialize()
             }
@@ -82,7 +82,7 @@ object ModelManager {
             conversation = newEngine.createConversation(convConfig)
             
             currentModelPath = modelPath
-            Log.d(TAG, "Engine/Conversation initialized. Context size: 1024 tokens. Cache: ${cacheDir.name}")
+            Log.d(TAG, "Engine/Conversation initialized. Context size: 2048 tokens. Cache: ${cacheDir.name}")
         } catch (e: Exception) {
             Log.e(TAG, "Senior-level init failed: model architecture might be incompatible with LiteRT-LM runtime version.", e)
             throw e

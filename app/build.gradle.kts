@@ -105,7 +105,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
     
     // LiteRT-LM (Native support for Gemma 4 E2B .litertlm)
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.2")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.11.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
